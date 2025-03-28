@@ -6,7 +6,7 @@ SafeStay について
 SafeStayは、現在地から近いホテルや宿泊施設を多言語（日本語・英語・タイ語・中国語）で検索できる避難支援アプリです。MVP（最小限プロダクト）として構築したものですが、「安心できる場所へたどり着く」ための選択肢として、少しでも役に立てばと願っています。
 
 完璧なプロダクトではありませんが、今この瞬間に必要とされているものを届けたいという思いで公開しました。どなたかの安心につながれば幸いです。
-
+詳しい背景や制作経緯は <a href="https://note.com/y_5k110/n/n59099d30f429">こちらのnote</a> にまとめています。
 
 About SafeStay
 On March 28, 2025, a magnitude 7.7 earthquake struck Myanmar. The tremors were widely felt across Thailand, especially in Bangkok and Chiang Mai, where public transportation came to a halt and many people were left stranded. Grab rides became unavailable, BTS train lines were shut down, and some hotels were overwhelmed with people seeking shelter.
@@ -19,3 +19,4 @@ SafeStay is an emergency support app that helps users search for nearby hotels a
 
 It’s far from perfect, but I released it with the simple intention of providing something helpful in a moment of real need.
 If it brings peace of mind to even one person, that alone makes it worthwhile.
+This app was created in response to a real emergency. For more about the background and intention, see <a href="https://note.com/y_5k110/n/n59099d30f429">this note</a>(in Japanese)
