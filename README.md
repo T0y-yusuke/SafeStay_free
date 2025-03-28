@@ -4,8 +4,6 @@ SafeStay - 災害時避難先検索ツール
 🔧 今後の改善について
 GitHub上で全公開していますので、どなたでも改善・Issue報告・Fork可能です。
 
-👉 https://github.com/T0y-yusuke/SafeStay
-
 API非使用（費用・安定性の観点から）
 UIやUX含めて改善余地あり
 ホテル情報も自動取得ベースなので一部不正確かも
