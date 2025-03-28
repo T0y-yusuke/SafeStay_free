@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeStay - 災害時の避難先検索</title>
+  <style>
+    /* 基本スタイル */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+      padding: 20px;
+    }
+
+    .app {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      padding: 20px 0;
+      background-color: #4a6fa5;
+      color: white;
+      border-radius: 0 0 10px 10px;
+      margin-bottom: 20px;
+    }
+
+    .disclaimer {
+      background-color: #fff7e6; /* 薄い黄色背景 */
+      color: #333;
+      border-left: 4px solid #ffa000;
+      margin-bottom: 15px;
+      padding: 10px;
+      font-size: 14px;
+    }
+
+    .loading,
+    .error {
+      text-align: center;
+      padding: 30px;
+      font-size: 18px;
+    }
+
+    .error {
+      color: #e53935;
+    }
+
+    .location-info {
+      margin-bottom: 20px;
+      padding: 10px;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    .hotel-list {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .hotel-card {
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+
+    .hotel-name {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .distance,
+    .price {
+      margin-bottom: 8px;
+    }
+
+    .price {
+      font-weight: bold;
+      color: #4a6fa5;
+    }
+
+    .hotel-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .directions-btn,
+    .call-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .directions-btn {
+      background-color: #4a6fa5;
+      color: white;
+    }
+
+    .call-btn {
+      background-color: #4caf50;
+      color: white;
+    }
+
+    /* 言語切り替えボタンのスタイル */
+    .language-selector {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .language-btn {
+      padding: 5px 10px;
+      margin: 0 5px;
+      background-color: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .language-btn.active {
+      background-color: #4a6fa5;
+      color: white;
+      border-color: #4a6fa5;
+    }
+
+    /* 価格帯フィルター */
+    .price-filter {
+      text-align: center;
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .price-btn {
+      padding: 5px 10px;
+      background-color: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .price-btn.active {
+      background-color: #4caf50;
+      color: white;
+      border-color: #4caf50;
+    }
+
+    /* モック位置情報ボタン (位置情報取得が動かない時用) */
+    .mock-location-btn {
+      display: block;
+      margin: 20px auto;
+      padding: 10px 15px;
+      background-color: #ff9800;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    @media (min-width: 600px) {
+      .hotel-card {
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .hotel-info {
+        flex: 2;
+      }
+
+      .hotel-actions {
+        flex: 1;
+        flex-direction: column;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <!-- 言語選択 -->
+    <div class="language-selector">
+      <button id="lang-ja" class="language-btn active" onclick="changeLanguage('ja')">日本語</button>
+      <button id="lang-en" class="language-btn" onclick="changeLanguage('en')">English</button>
+      <button id="lang-th" class="language-btn" onclick="changeLanguage('th')">ภาษาไทย</button>
+      <button id="lang-zh" class="language-btn" onclick="changeLanguage('zh')">简体中文</button>
+    </div>
+
+    <header class="header">
+      <h1 id="app-title">SafeStay</h1>
+      <p id="app-subtitle">災害時の避難先を探す</p>
+    </header>
+
+    <!-- 注意書きのディスクレーマー -->
+    <div class="disclaimer" id="disclaimer-text">
+      ※このサイトのホテル情報（緯度・経度・電話番号など）は、自動的に取得したデータを含んでいます。
+      実際の場所や連絡先が異なる可能性がありますので、正確な情報はご自身でもご確認ください。
+    </div>
+
+    <!-- 価格フィルター -->
+    <div class="price-filter">
+      <button id="price-all" class="price-btn active" onclick="filterByPrice('all')">全ての価格</button>
+      <button id="price-budget" class="price-btn" onclick="filterByPrice('budget')">1500THB以下</button>
+      <button id="price-medium" class="price-btn" onclick="filterByPrice('medium')">1500-3000THB</button>
+      <button id="price-high" class="price-btn" onclick="filterByPrice('high')">3000THB以上</button>
+    </div>
+
+    <main>
+      <div id="status" class="loading">位置情報を取得中...</div>
+      
+      <!-- 位置情報が取得できない時のためのバックアップボタン -->
+      <button id="mock-location-btn" class="mock-location-btn" style="display: none;" onclick="useMockLocation()">
+        現在地を設定できない場合はこちら
+      </button>
+
+      <div id="content" style="display: none;">
+        <div class="location-info">
+          <span id="nearby-text">現在地から近いホテル:</span>
+          <span id="hotel-count">0</span>
+          <span id="hotels-text">件</span>
+        </div>
+
+        <div id="hotel-list" class="hotel-list">
+          <!-- ホテルリストがここに表示されます -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // 多言語テキスト
+    const translations = {
+      ja: {
+        appTitle: 'SafeStay',
+        appSubtitle: '災害時の避難先を探す',
+        loading: '位置情報を取得中...',
+        locationError: '周辺のホテルが見つかりませんでした。',
+        browserError: 'お使いのブラウザは位置情報をサポートしていません。',
+        nearbyText: '現在地から近いホテル:',
+        hotelsText: '件',
+        distanceText: '現在地から約',
+        kmText: 'km',
+        priceText: '',
+        perNight: '/泊',
+        directionsBtn: '道順を表示',
+        callBtn: '電話をかける',
+        priceAll: '全ての価格',
+        priceBudget: '1500THB以下',
+        priceMedium: '1500-3000THB',
+        priceHigh: '3000THB以上',
+        mockLocationBtn: '現在地を設定できない場合はこちら'
+      },
+      en: {
+        appTitle: 'SafeStay',
+        appSubtitle: 'Find shelter during emergencies',
+        loading: 'Getting your location...',
+        locationError: 'Could not find any nearby hotels.',
+        browserError: 'Your browser does not support geolocation.',
+        nearbyText: 'Hotels near you:',
+        hotelsText: '',
+        distanceText: 'About ',
+        kmText: 'km from you',
+        priceText: '',
+        perNight: '/night',
+        directionsBtn: 'Get Directions',
+        callBtn: 'Call Hotel',
+        priceAll: 'All Prices',
+        priceBudget: 'Under 1500THB',
+        priceMedium: '1500-3000THB',
+        priceHigh: 'Over 3000THB',
+        mockLocationBtn: 'Click here if location cannot be set'
+      },
+      th: {
+        appTitle: 'SafeStay',
+        appSubtitle: 'ค้นหาที่พักในกรณีฉุกเฉิน',
+        loading: 'กำลังค้นหาตำแหน่งของคุณ...',
+        locationError: 'ไม่พบโรงแรมใกล้เคียง',
+        browserError: 'เบราว์เซอร์ของคุณไม่รองรับการระบุตำแหน่ง',
+        nearbyText: 'โรงแรมใกล้คุณ:',
+        hotelsText: ' แห่ง',
+        distanceText: 'ประมาณ ',
+        kmText: 'กม. จากคุณ',
+        priceText: 'ราคา ',
+        perNight: '/คืน',
+        directionsBtn: 'ดูเส้นทาง',
+        callBtn: 'โทรหาโรงแรม',
+        priceAll: 'ทุกราคา',
+        priceBudget: 'ต่ำกว่า 1500THB',
+        priceMedium: '1500-3000THB',
+        priceHigh: 'มากกว่า 3000THB',
+        mockLocationBtn: 'คลิกที่นี่หากไม่สามารถตั้งค่าตำแหน่งได้'
+      },
+      zh: {
+        appTitle: 'SafeStay',
+        appSubtitle: '在紧急情况下寻找避难所',
+        loading: '正在获取您的位置...',
+        locationError: '未找到附近的酒店。',
+        browserError: '您的浏览器不支持地理定位。',
+        nearbyText: '离您最近的酒店:',
+        hotelsText: '家',
+        distanceText: '距离您约',
+        kmText: '公里',
+        priceText: '价格 ',
+        perNight: '/晚',
+        directionsBtn: '获取路线',
+        callBtn: '电话联系',
+        priceAll: '全部价格',
+        priceBudget: '1500THB以下',
+        priceMedium: '1500-3000THB',
+        priceHigh: '3000THB以上',
+        mockLocationBtn: '如果无法设置位置，请点击这里'
+      }
+    };
+
+    // 現在の言語
+    let currentLang = 'ja';
+    // 現在の価格フィルター
+    let currentPriceFilter = 'all';
+    // ユーザーの位置情報
+    let userLocation = null;
+
+    // 言語を変更する関数
+    function changeLanguage(lang) {
+      currentLang = lang;
+
+      // 言語ボタンのアクティブ状態を更新
+      document.querySelectorAll('.language-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.getElementById(`lang-${lang}`).classList.add('active');
+
+      // テキストを更新
+      document.getElementById('app-title').textContent = translations[lang].appTitle;
+      document.getElementById('app-subtitle').textContent = translations[lang].appSubtitle;
+
+      // 価格フィルターのテキストを更新
+      document.getElementById('price-all').textContent = translations[lang].priceAll;
+      document.getElementById('price-budget').textContent = translations[lang].priceBudget;
+      document.getElementById('price-medium').textContent = translations[lang].priceMedium;
+      document.getElementById('price-high').textContent = translations[lang].priceHigh;
+
+      const statusEl = document.getElementById('status');
+      if (statusEl.className === 'loading') {
+        statusEl.textContent = translations[lang].loading;
+      } else if (statusEl.className === 'error') {
+        statusEl.textContent = translations[lang].locationError;
+      }
+
+      document.getElementById('nearby-text').textContent = translations[lang].nearbyText;
+      document.getElementById('hotels-text').textContent = translations[lang].hotelsText;
+      document.getElementById('mock-location-btn').textContent = translations[lang].mockLocationBtn;
+
+      // 注記の文言を切り替えたい場合は、ここで操作も可能
+      if (lang === 'ja') {
+        document.getElementById('disclaimer-text').textContent =
+          '※このサイトのホテル情報（緯度・経度・電話番号など）は、自動的に取得したデータを含んでいます。実際の場所や連絡先が異なる可能性がありますので、正確な情報はご自身でもご確認ください。';
+      } else if (lang === 'en') {
+        document.getElementById('disclaimer-text').textContent =
+          '*This site contains automatically acquired data (lat/lng, phone, etc.). Actual location or contact info may differ. Please verify the information yourself.';
+      } else if (lang === 'th') {
+        document.getElementById('disclaimer-text').textContent =
+          '*เว็บไซต์นี้อาจมีข้อมูล (ละติจูด/ลองจิจูด หมายเลขโทรศัพท์ ฯลฯ) ที่รวบรวมอัตโนมัติ สถานที่จริงหรือข้อมูลติดต่ออาจแตกต่างกัน กรุณาตรวจสอบด้วยตัวคุณเอง';
+      } else if (lang === 'zh') {
+        document.getElementById('disclaimer-text').textContent =
+          '※本网站包含自动获取的数据（经纬度、电话等），实际位置或联系方式可能不同，请自行确认信息的准确性。';
+      }
+
+      // ホテルリストを再描画
+      if (userLocation) {
+        updateHotelList();
+      }
+    }
+
+    // 価格フィルターを変更する関数
+    function filterByPrice(priceRange) {
+      currentPriceFilter = priceRange;
+
+      // 価格ボタンのアクティブ状態を更新
+      document.querySelectorAll('.price-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.getElementById(`price-${priceRange}`).classList.add('active');
+
+      // ホテルリストを更新
+      if (userLocation) {
+        updateHotelList();
+      }
+    }
+
+    // ホテルのサンプル配列
+    const ALL_HOTELS = [
+      // 1500THB以下の例
+      {
+        id: "hc1",
+        name: {
+          ja: "マッド モンキー バンコク（カオサン）",
+          en: "Mad Monkey Bangkok (Khaosan)",
+          th: "แมด มังกี้ แบงค็อก (ข้าวสาร)",
+          zh: "疯狂猴子旅舍（考山）"
+        },
+        lat: 13.76320667500009,
+        lng: 100.49696937026923,
+        price: 450,
+        currency: "THB",
+        phone: "+66-2-282-6171"
+      },
+      {
+        id: "hc2",
+        name: {
+          ja: "ナップパーク ホステル アット カオサン",
+          en: "NapPark Hostel @ Khao San",
+          th: "แน็พพาร์ค โฮสเทล แอท ข้าวสาร",
+          zh: "考山NapPark旅舍"
+        },
+        lat: 13.761102683297763,
+        lng: 100.49767413839173,
+        price: 500,
+        currency: "THB",
+        phone: "+66-2-282-2324"
+      },
+      {
+        id: "hc3",
+        name: {
+          ja: "サイアム プラグイン ホステル",
+          en: "Siam Plug In Hostel",
+          th: "Siam Plug In Hostel",
+          zh: "Siam Plug In Hostel"
+        },
+        lat: 13.720524070459348,
+        lng: 100.50654724118036,
+        price: 650,
+        currency: "THB",
+        phone: "+66-2-115-3099"
+      },
+      {
+        id: "hc4",
+        name: {
+          ja: "HQ ホステル",
+          en: "HQ Hostel",
+          th: "HQ Hostel",
+          zh: "HQ Hostel"
+        },
+        lat: 13.726757579597862,
+        lng: 100.53103811140366,
+        price: 600,
+        currency: "THB",
+        phone: "+66-2-635-7214"
+      },
+      {
+        id: "hc5",
+        name: {
+          ja: "ココテル バンコク スクムウィット 50",
+          en: "KOKOTEL BANGKOK SUKHUMVIT 50",
+          th: "KOKOTEL BANGKOK SUKHUMVIT 50",
+          zh: "KOKOTEL BANGKOK SUKHUMVIT 50"
+        },
+        lat: 13.704919447715307,
+        lng: 100.59929745373262,
+        price: 1200,
+        currency: "THB",
+        phone: "+66-2-331-1045"
+      },
+      {
+        id: "hc6",
+        name: {
+          ja: "ザ ヤーマ ホテル バンコク",
+          en: "The Yard Hostel Bangkok",
+          th: "เดอะ ยาร์ด โฮสเทล กรุงเทพ",
+          zh: "曼谷院子旅舍"
+        },
+        lat: 13.76826,
+        lng: 100.57039,
+        price: 700,
+        currency: "THB",
+        phone: "+66-2-115-7855"
+      },
+      {
+        id: "hc7",
+        name: {
+          ja: "スリウォン ホテル",
+          en: "Suriwong Hotel",
+          th: "สุริวงศ์ โฮเต็ล",
+          zh: "素里翁酒店"
+        },
+        lat: 13.72824,
+        lng: 100.52765,
+        price: 900,
+        currency: "THB",
+        phone: "+66-2-233-4444"
+      },
+      {
+        id: "hc8",
+        name: {
+          ja: "カフェ イット オール ホステル",
+          en: "Cafe It All Hostel",
+          th: "คาเฟ่ อิท ออล โฮสเทล",
+          zh: "全咖啡旅舍"
+        },
+        lat: 13.74882,
+        lng: 100.53226,
+        price: 500,
+        currency: "THB",
+        phone: "+66-2-656-7889"
+      },
+
+      // 1500-3000THBの例
+      {
+        id: "hm1",
+        name: {
+          ja: "イビス バンコク リバーサイド",
+          en: "Ibis Bangkok Riverside",
+          th: "ไอบิส กรุงเทพ ริเวอร์ไซด์",
+          zh: "宜必思曼谷河畔酒店"
+        },
+        lat: 13.71866,
+        lng: 100.51092,
+        price: 2000,
+        currency: "THB",
+        phone: "+66-2-659-2888"
+      },
+      {
+        id: "hm2",
+        name: {
+          ja: "イビス バンコク サトーン",
+          en: "Ibis Bangkok Sathorn",
+          th: "ไอบิส กรุงเทพ สาทร",
+          zh: "宜必思曼谷沙吞酒店"
+        },
+        lat: 13.72407,
+        lng: 100.54666,
+        price: 1800,
+        currency: "THB",
+        phone: "+66-2-659-2888"
+      },
+      {
+        id: "hm3",
+        name: {
+          ja: "イビス バンコク サイアム",
+          en: "Ibis Bangkok Siam",
+          th: "ไอบิส กรุงเทพ สยาม",
+          zh: "宜必思曼谷暹罗酒店"
+        },
+        lat: 13.74580,
+        lng: 100.53076,
+        price: 1800,
+        currency: "THB",
+        phone: "+66-2-658-1187"
+      },
+      {
+        id: "hm4",
+        name: {
+          ja: "ホリデイ イン エクスプレス バンコク サイアム",
+          en: "Holiday Inn Express Bangkok Siam",
+          th: "ฮอลิเดย์ อินน์ เอกซ์เพรส กรุงเทพ สยาม",
+          zh: "曼谷暹罗智选假日酒店"
+        },
+        lat: 13.74528,
+        lng: 100.52878,
+        price: 2200,
+        currency: "THB",
+        phone: "+66-2-080-9000"
+      },
+      {
+        id: "hm5",
+        name: {
+          ja: "ノボテル バンコク プラチナム",
+          en: "Novotel Bangkok Platinum",
+          th: "โนโวเทล กรุงเทพ แพลตตินั่ม",
+          zh: "曼谷铂尔曼诺富特酒店"
+        },
+        lat: 13.74644,
+        lng: 100.53975,
+        price: 2500,
+        currency: "THB",
+        phone: "+66-2-160-7888"
+      },
+      {
+        id: "hm6",
+        name: {
+          ja: "センター ポイント プラトゥーナム",
+          en: "Centre Point Pratunam",
+          th: "เซ็นเตอร์ พอยท์ ประตูน้ำ",
+          zh: "水门中心点酒店"
+        },
+        lat: 13.75026, 
+        lng: 100.54102,
+        price: 2800,
+        currency: "THB",
+        phone: "+66-2-680-1111"
+      },
+      {
+        id: "hm7",
+        name: {
+          ja: "フォー ポイント バイ シェラトン バンコク",
+          en: "Four Points by Sheraton Bangkok",
+          th: "โฟร์พอยท์ บาย เชอราตัน กรุงเทพ",
+          zh: "曼谷福朋喜来登酒店"
+        },
+        lat: 13.74080,
+        lng: 100.55245,
+        price: 2900,
+        currency: "THB",
+        phone: "+66-2-309-3000"
+      },
+      {
+        id: "hm8",
+        name: {
+          ja: "ダブルツリー バイ ヒルトン スクンビット",
+          en: "DoubleTree by Hilton Sukhumvit",
+          th: "ดับเบิลทรี บาย ฮิลตัน สุขุมวิท",
+          zh: "希尔顿逸林素坤逸酒店"
+        },
+        lat: 13.73379,
+        lng: 100.57120,
+        price: 2800,
+        currency: "THB",
+        phone: "+66-2-649-6666"
+      },
+
+      // 3000THB以上の例
+      {
+        id: "hh1",
+        name: {
+          ja: "ソー ソフィテル バンコク",
+          en: "SO Sofitel Bangkok",
+          th: "โซ โซฟิเทล กรุงเทพ",
+          zh: "曼谷SO索菲特酒店"
+        },
+        lat: 13.72930,
+        lng: 100.53639,
+        price: 5500,
+        currency: "THB",
+        phone: "+66-2-624-0000"
+      },
+      {
+        id: "hh2",
+        name: {
+          ja: "ルブア アット ステート タワー",
+          en: "Lebua at State Tower",
+          th: "เลอบัว แอท สเตท ทาวเวอร์",
+          zh: "曼谷楼主酒店"
+        },
+        lat: 13.72172,
+        lng: 100.51705,
+        price: 4800,
+        currency: "THB",
+        phone: "+66-2-624-9999"
+      },
+      {
+        id: "hh3",
+        name: {
+          ja: "マンダリン オリエンタル バンコク",
+          en: "Mandarin Oriental Bangkok",
+          th: "แมนดาริน โอเรียนเต็ล กรุงเทพ",
+          zh: "曼谷文华东方酒店"
+        },
+        lat: 13.72279,
+        lng: 100.51353,
+        price: 12000,
+        currency: "THB",
+        phone: "+66-2-659-9000"
+      },
+      {
+        id: "hh4",
+        name: {
+          ja: "ザ ペニンシュラ バンコク",
+          en: "The Peninsula Bangkok",
+          th: "เดอะ เพนนินซูล่า กรุงเทพ",
+          zh: "曼谷半岛酒店"
+        },
+        lat: 13.72471,
+        lng: 100.50771,
+        price: 10000,
+        currency: "THB",
+        phone: "+66-2-020-2888"
+      },
+      {
+        id: "hh5",
+        name: {
+          ja: "ザ セント レジス バンコク",
+          en: "The St. Regis Bangkok",
+          th: "เดอะ เซนต์ รีจิส กรุงเทพ",
+          zh: "曼谷瑞吉酒店"
+        },
+        lat: 13.74101,
+        lng: 100.54046,
+        price: 9000,
+        currency: "THB",
+        phone: "+66-2-207-7777"
+      },
+      {
+        id: "hh6",
+        name: {
+          ja: "オークラ プレステージ バンコク",
+          en: "The Okura Prestige Bangkok",
+          th: "ดิ โอกุระ เพรสทีจ กรุงเทพ",
+          zh: "曼谷大仓新颐酒店"
+        },
+        lat: 13.74228,
+        lng: 100.54625,
+        price: 7500,
+        currency: "THB",
+        phone: "+66-2-687-9000"
+      },
+      {
+        id: "hh7",
+        name: {
+          ja: "パーク ハイアット バンコク",
+          en: "Park Hyatt Bangkok",
+          th: "พาร์ค ไฮแอท กรุงเทพ",
+          zh: "曼谷柏悦酒店"
+        },
+        lat: 13.74531,
+        lng: 100.54009,
+        price: 9500,
+        currency: "THB",
+        phone: "+66-2-012-1234"
+      },
+      {
+        id: "hh8",
+        name: {
+          ja: "ケンピンスキー レジデンス バンコク",
+          en: "Kempinski Residences Bangkok",
+          th: "เคมปินสกี้ เรสซิเดนซ์ กรุงเทพ",
+          zh: "曼谷凯宾斯基公寓"
+        },
+        lat: 13.73283,
+        lng: 100.56882,
+        price: 8500,
+        currency: "THB",
+        phone: "+66-2-663-9999"
+      }
+    ];
+
+    // バックアップ用の位置情報（バンコク中心部）を使用する関数
+    function useMockLocation() {
+      // バンコク中心部の座標
+      userLocation = {
+        lat: 13.75,
+        lng: 100.50
+      };
+      
+      // ホテルリストを更新
+      updateHotelList();
+      
+      // 画面表示の切り替え
+      document.getElementById('status').style.display = 'none';
+      document.getElementById('mock-location-btn').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+    }
+
+    // 現在地が取得できたらホテルリストを更新する関数
+    function updateHotelList() {
+      if (!userLocation) {
+        console.error("位置情報がまだ設定されていません");
+        return;
+      }
+
+      const userLat = userLocation.lat;
+      const userLng = userLocation.lng;
+
+      // 周辺ホテルを距離順に並べる
+      const nearbyHotels = ALL_HOTELS.map(hotel => {
+        const distance = calculateDistance(userLat, userLng, hotel.lat, hotel.lng);
+        return { ...hotel, distance };
+      }).sort((a, b) => a.distance - b.distance);
+
+      // 価格フィルタリング
+      let filteredHotels = nearbyHotels;
+      if (currentPriceFilter === 'budget') {
+        filteredHotels = nearbyHotels.filter(hotel => hotel.price <= 1500);
+      } else if (currentPriceFilter === 'medium') {
+        filteredHotels = nearbyHotels.filter(hotel => hotel.price > 1500 && hotel.price <= 3000);
+      } else if (currentPriceFilter === 'high') {
+        filteredHotels = nearbyHotels.filter(hotel => hotel.price > 3000);
+      }
+
+      // 上位5件のみ
+      const topHotels = filteredHotels.slice(0, 5);
+
+      // ホテル数表示
+      document.getElementById('hotel-count').textContent = topHotels.length;
+
+      // リストをクリアして再構築
+      const hotelListElement = document.getElementById('hotel-list');
+      hotelListElement.innerHTML = '';
+
+      if (topHotels.length === 0) {
+        hotelListElement.innerHTML = `
+          <div class="no-results">
+            <p>${translations[currentLang].locationError}</p>
+          </div>
+        `;
+        return;
+      }
+
+      topHotels.forEach(hotel => {
+        const hotelCard = document.createElement('div');
+        hotelCard.className = 'hotel-card';
+
+        hotelCard.innerHTML = `
+          <div class="hotel-info">
+            <h2 class="hotel-name">${hotel.name[currentLang]}</h2>
+            <p class="distance">
+              ${translations[currentLang].distanceText}${hotel.distance}${translations[currentLang].kmText}
+            </p>
+            <p class="price">
+              ${translations[currentLang].priceText}${hotel.price} ${hotel.currency}${translations[currentLang].perNight}
+            </p>
+          </div>
+          <div class="hotel-actions">
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${hotel.lat},${hotel.lng}&travelmode=walking"
+               class="directions-btn" target="_blank">
+              ${translations[currentLang].directionsBtn}
+            </a>
+            <a href="tel:${hotel.phone}" class="call-btn">
+              ${translations[currentLang].callBtn}
+            </a>
+          </div>
+        `;
+
+        hotelListElement.appendChild(hotelCard);
+      });
+    }
+
+    // 2点間の距離を計算（Haversine 公式）
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // 地球の半径 (km)
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distance = R * c;
+      return Math.round(distance * 10) / 10; // 小数点第1位まで
+    }
+
+    // ページ読み込み時の処理
+    document.addEventListener('DOMContentLoaded', function () {
+      // 位置情報取得のタイムアウト設定（5秒後にモック位置情報を使用するボタンを表示）
+      setTimeout(function() {
+        if (!userLocation) {
+          document.getElementById('mock-location-btn').style.display = 'block';
+        }
+      }, 5000);
+      
+      if (navigator.geolocation) {
+        document.getElementById('status').className = 'loading';
+        document.getElementById('status').textContent = translations[currentLang].loading;
+        document.getElementById('status').style.display = 'block';
+        document.getElementById('content').style.display = 'none';
+
+        navigator.geolocation.getCurrentPosition(
+          function (position) {
+            userLocation = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+
+            // 取得成功 → ホテルリスト更新
+            updateHotelList();
+            document.getElementById('status').style.display = 'none';
+            document.getElementById('mock-location-btn').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+          },
+          function (error) {
+            console.error("位置情報エラー:", error);
+            // エラー時にはモック位置情報ボタンを表示
+            document.getElementById('mock-location-btn').style.display = 'block';
+            document.getElementById('status').className = 'error';
+            document.getElementById('status').textContent = translations[currentLang].locationError;
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000  // 10秒でタイムアウト
+          }
+        );
+      } else {
+        // ブラウザ非対応
+        document.getElementById('status').className = 'error';
+        document.getElementById('status').textContent = translations[currentLang].browserError;
+        document.getElementById('status').style.display = 'block';
+        document.getElementById('content').style.display = 'none';
+        // モック位置情報ボタンを表示
+        document.getElementById('mock-location-btn').style.display = 'block';
+      }
+    });
+  </script>
+</body>
+
+</html>
